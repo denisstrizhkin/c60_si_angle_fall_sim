@@ -1,0 +1,114 @@
+# CONSTANTS
+variable zero_lvl equal "-0.0184635"
+variable carbon_vz equal "-231"
+variable carbon_vx equal "0"
+
+variable num_of_c equal "60"
+variable z_coord_threshold equal "12"
+variable z_speed_threshold equal "0.5"
+
+# INIT
+units       metal
+dimension   3
+boundary    p p m
+atom_style  atomic
+atom_modify map yes
+read_data   fall.input.data
+
+# GROUPS
+group   g_fu type 2
+group   g_si_all type 1
+lattice diamond 5.43 orient x 1 0 0 orient y 0 1 0 orient z 0 0 1
+region  r_si_center block -11 11 -11 11 -34 0 units lattice
+group   g_si_center region r_si_center
+group   g_si_thermostat subtract g_si_all g_si_center
+group   g_output id 1
+
+# POTENTIAL
+pair_style  hybrid airebo 3.0 tersoff/zbl
+pair_coeff  * * tersoff/zbl potentials/SiC.tersoff.zbl Si C
+pair_coeff  2 2 none
+pair_coeff  * * airebo potentials/CH.airebo NULL C
+neighbor    3.0 bin
+
+# COMPUTES
+
+# atoms above zero_lvl
+variable is_above_zero_lvl atom "z>v_zero_lvl"
+compute  above_zero_lvl all reduce sum v_is_above_zero_lvl
+
+# voronoi
+compute   voro_occupation g_si_all voronoi/atom occupation only_group
+
+variable  is_vacancy atom "c_voro_occupation[1]==0"
+compute   vacancy_sum g_si_all reduce sum v_is_vacancy
+variable  vacancies atom "c_vacancy_sum"
+
+#variable  vIntTemp1 atom "c_vOcu[1]*(c_vOcu[1]>1)"
+#variable  vIntTemp2 atom "c_vOcu[1]>1"
+#variable  vIntTemp3 atom "v_vIntTemp1-v_vIntTemp2"
+#compute   vIntTemp3 g_si_all reduce sum v_vIntTemp3
+#variable  vInt atom "c_vIntTemp3-v_num_of_c"
+#variable  interstitials equal "c_vIntTemp3-v_num_of_c"
+
+# sputtered atoms
+variable  is_sputtered atom "(z>v_z_coord_threshold)&&(vz>v_z_speed_threshold)"
+compute   sputter_sum_all  all       reduce sum v_is_sputtered
+compute   sputter_sum_si   g_si_all  reduce sum v_is_sputtered
+compute   sputter_sum_c    g_fu      reduce sum v_is_sputtered
+variable  sputter_all atom "c_sputter_sum_all"
+variable  sputter_si  atom "c_sputter_sum_si"
+variable  sputter_c   atom "c_sputter_sum_c"
+
+#per atom ke
+compute   atom_ke all ke/atom
+
+#full system energy
+compute   sys_pe all pe
+compute   sys_ke all ke
+variable  sys_fe equal "c_sys_pe + c_sys_ke"
+
+# THERMO
+reset_timestep 0
+timestep       0.001
+thermo         20
+thermo_style   custom step c_sys_pe c_sys_ke v_sys_fe c_above_zero_lvl
+#thermo_modify  lost ignore
+
+# FIX
+fix f_1 all nve
+fix f_2 g_si_thermostat nvt temp 1e-3 1e-3 $(100.0*dt)
+
+# DUMP
+dump  d_vor g_output custom 20 vor_time.dump v_vacancies v_sputter_all &
+    v_sputter_si v_sputter_c
+dump  d_all all custom 20 all.dump id type x y z vx vy vz c_atom_ke
+
+# VELOCITY FU
+velocity  g_fu set v_carbon_vx NULL v_carbon_vz sum yes units box
+
+# RUN
+run 50
+
+# LAST STEP DUMP
+undump  d_vor
+undump  d_all
+dump    d_last_step all custom 2 last_step.dump id type x y z vx vy vz &
+    v_is_sputtered
+
+# RUN LAST STEP
+run 1
+
+# LAST 10 STEPS COMPUTES
+variable  c_z_dist atom "z-v_zero_lvl"
+
+# LAST 10 STEPS DUMPS
+undump  d_last_step
+dump    d_last10 all custom 5 last_10.dump id type x y z vx vy vz &
+    v_is_sputtered v_c_z_dist
+
+# RUN LAST 10
+run 50
+
+# WRITE DATA
+write_data  fall.output.data
