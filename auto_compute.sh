@@ -24,7 +24,9 @@ DUMP_VOR=vor_time.dump
 # zero level
 ZERO_LVL="-0.0184635"
 # computes speeds
-SPEEDS=("115.7" "163.6" "231.4" "283.4" "365.88")
+ANGLES=(20 40 60 80)
+X_VELOCITIES=("79.1" "148.7" "200.4" "227.9")
+Z_VELOCITIES=("217.4" "177.3" "115.7" "40.2")
 
 clean() {
   # rm input.data
@@ -63,62 +65,59 @@ begin() {
   mkdir result
   
   # variants loop
-  for speed_i in "${SPEEDS[@]}"
+  for move_i in {0..3}
   do
-    for move_i in {1..5}
-    do
-      echo "compute: moved_${move_i}_speed_${speed_i}"; echo; echo "$STARS"
-    
-      RESULTS_DIR="$DIR/result/moved_${move_i}_speed_${speed_i}"
-      NEW_INPUT_DATA="$RESULTS_DIR/$INPUT"
-      NEW_IN_DATA="$RESULTS_DIR/$IN"
-    
-      mkdir $RESULTS_DIR
-      
-      echo "moving carbon"
-      $DATA_PARSER 'r' $INPUT_TEMPLATE $NEW_INPUT_DATA "temp"
-      cp $NEW_INPUT_DATA $DIR/$INPUT
-      echo; echo "$STARS"
+    echo "compute: angle_${ANGLES[move_i]}"; echo; echo "$STARS"
   
-      echo "changing .in file"
-      echo "# CONSTANTS" > $DIR/$IN
-      echo 'variable zero_lvl equal "'$ZERO_LVL'"' >> $DIR/$IN 
-      echo 'variable carbon_vz equal "'-${speed_i}'"' >> $DIR/$IN
-      echo 'variable carbon_vx equal "'0'"' >> $DIR/$IN
-      awk "NR >= 5" $IN_TEMPLATE >> $DIR/$IN
-      echo; echo "$STARS"
-      
-      # run lammps script
-      echo "running lammps script"; echo " ---"
-      lmp -sf omp -in fall.in
+    RESULTS_DIR="$DIR/result/angle_${ANGLES[move_i]}"
+    NEW_INPUT_DATA="$RESULTS_DIR/$INPUT"
+    NEW_IN_DATA="$RESULTS_DIR/$IN"
   
-      ### COPY OUTPUT ###
-      # cp output.data
-      cp $DIR/$OUTPUT $RESULTS_DIR/$OUTPUT
-      # cp .in file
-      cp $DIR/$IN $RESULTS_DIR/$IN 
-      # cp dumps
-      cp $DIR/$DUMP_LAST_STEP $RESULTS_DIR/$DUMP_LAST_STEP
-      cp $DIR/$DUMP_LAST10 $RESULTS_DIR/$DUMP_LAST10
-      cp $DIR/$DUMP_ALL $RESULTS_DIR/$DUMP_ALL
-      cp $DIR/$DUMP_VOR $RESULTS_DIR/$DUMP_VOR
-      # cp log.lammps
-      cp $DIR/$LOG $RESULTS_DIR/$LOG
-      echo; echo "$STARS"
-      
-      # parse carbon z distribution dump
-      echo "last 10 steps carbon distribution average calculation"
-      $DATA_PARSER "c" $DIR/$DUMP_LAST10 $RESULTS_DIR/C_z_dist.vals "temp"
-      echo; echo "$STARS"
-      
-      # parse voro dump
-      echo "parsing voronoi time relation dump"
-      $DATA_PARSER "v" $DIR/$DUMP_VOR $RESULTS_DIR/Voro_time.vals "temp"
-      echo; echo "$STARS"
+    mkdir $RESULTS_DIR
+    
+    echo "moving carbon"
+    $DATA_PARSER 'a' $INPUT_TEMPLATE $NEW_INPUT_DATA "${ANGLES[move_i]}"
+    cp $NEW_INPUT_DATA $DIR/$INPUT
+    echo; echo "$STARS"
+  
+    echo "changing .in file"
+    echo "# CONSTANTS" > $DIR/$IN
+    echo 'variable zero_lvl equal "'$ZERO_LVL'"' >> $DIR/$IN 
+    echo 'variable carbon_vz equal "'-${Z_VELOCITIES[move_i]}'"' >> $DIR/$IN
+    echo 'variable carbon_vx equal "'-${X_VELOCITIES[move_i]}'"' >> $DIR/$IN
+    awk "NR >= 5" $IN_TEMPLATE >> $DIR/$IN
+    echo; echo "$STARS"
+    
+    # run lammps script
+    echo "running lammps script"; echo " ---"
+    lmp -sf omp -in fall.in
+  
+    ### COPY OUTPUT ###
+    # cp output.data
+    cp $DIR/$OUTPUT $RESULTS_DIR/$OUTPUT
+    # cp .in file
+    cp $DIR/$IN $RESULTS_DIR/$IN 
+    # cp dumps
+    cp $DIR/$DUMP_LAST_STEP $RESULTS_DIR/$DUMP_LAST_STEP
+    cp $DIR/$DUMP_LAST10 $RESULTS_DIR/$DUMP_LAST10
+    cp $DIR/$DUMP_ALL $RESULTS_DIR/$DUMP_ALL
+    cp $DIR/$DUMP_VOR $RESULTS_DIR/$DUMP_VOR
+    # cp log.lammps
+    cp $DIR/$LOG $RESULTS_DIR/$LOG
+    echo; echo "$STARS"
+    
+    # parse carbon z distribution dump
+    echo "last 10 steps carbon distribution average calculation"
+    $DATA_PARSER "c" $DIR/$DUMP_LAST10 $RESULTS_DIR/C_z_dist.vals "temp"
+    echo; echo "$STARS"
+    
+    # parse voro dump
+    echo "parsing voronoi time relation dump"
+    $DATA_PARSER "v" $DIR/$DUMP_VOR $RESULTS_DIR/Voro_time.vals "temp"
+    echo; echo "$STARS"
 
-      #clean temp files
-      clean
-    done
+    #clean temp files
+    clean
   done
 }
 
