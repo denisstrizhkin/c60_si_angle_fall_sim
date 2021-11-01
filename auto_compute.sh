@@ -133,18 +133,19 @@ above_surface() {
   touch $TMP
 
   thresholds=("0" "0.2" "0.4" "0.6" "0.8" "1")
+  thresholdss=("0" "0,2" "0,4" "0,6" "0,8" "1")
   printf "************" >> $TMP
   for threshold_i in {0..5}
   do
-    printf "__%1.1f" ${thresholds[threshold_i]} >> $TMP
+    printf "__%1.1f" ${thresholdss[threshold_i]} >> $TMP
   done
   echo "" >> $TMP
 
-  for move_i in {4..5}
+  for move_i in {1..5}
   do
     for angle_i in {0..3}
     do
-      printf "m: %2d,a: %2d|" $move_i $angle_i >> $TMP
+      printf "m: %2d,a: %2d|" $move_i ${ANGLES[angle_i]} >> $TMP
 
       COMPUTE_NAME="angle_${ANGLES[angle_i]}_move_${move_i}"
       echo "compute: $COMPUTE_NAME"; echo; echo "$STARS"
