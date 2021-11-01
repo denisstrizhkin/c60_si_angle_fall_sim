@@ -4,6 +4,7 @@
 DIR=$(dirname "$0")
 TEMPLATE_DIR="$DIR/templates"
 DATA_PARSER="$DIR/lammps_data_parser/lammps_data_parser"
+RESULT_DIR="$DIR/result"
 # string for printing stars
 STARS="******"
 # log file name
@@ -67,7 +68,7 @@ begin() {
   # variants loop
   for angle_i in {0..3}
   do
-    for move_i in {1..5}
+    for move_i in {4..5}
     do
       COMPUTE_NAME="angle_${ANGLES[angle_i]}_move_${move_i}"
       echo "compute: $COMPUTE_NAME"; echo; echo "$STARS"
@@ -122,6 +123,40 @@ begin() {
 
       #clean temp files
       clean
+    done
+  done
+}
+
+above_surface() {
+  TMP=$RESULT_DIR/above_surface.vals
+  rm -rf $TMP
+  touch $TMP
+
+  thresholds=("0" "0.2" "0.4" "0.6" "0.8" "1")
+  printf "************" >> $TMP
+  for threshold_i in {0..5}
+  do
+    printf "__%1.1f" ${thresholds[threshold_i]} >> $TMP
+  done
+  echo "" >> $TMP
+
+  for move_i in {4..5}
+  do
+    for angle_i in {0..3}
+    do
+      printf "m: %2d,a: %2d|" $move_i $angle_i >> $TMP
+
+      COMPUTE_NAME="angle_${ANGLES[angle_i]}_move_${move_i}"
+      echo "compute: $COMPUTE_NAME"; echo; echo "$STARS"
+  
+      COMPUTE_DIR="$RESULT_DIR/$COMPUTE_NAME"
+      for threshold_i in {0..5}
+      do
+        $DATA_PARSER "u" $COMPUTE_DIR/$DUMP_LAST10 $RESULT_DIR/tmp "${thresholds[threshold_i]}"
+        tmp=$(cat $RESULT_DIR/tmp)
+        printf "%5d" $tmp >> $TMP
+      done
+      echo "" >> $TMP
     done
   done
 }
